@@ -7,6 +7,7 @@ import "src/Kernel.sol";
 import "src/validator/ECDSAValidator.sol";
 
 contract KernelFactory {
+    
     Kernel public immutable kernelTemplate;
 
     event AccountCreated(address indexed account, address indexed validator, bytes data, uint256 index);

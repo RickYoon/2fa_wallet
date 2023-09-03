@@ -12,6 +12,7 @@ struct TwofaValidatorStorage {
 }
 
 contract TwofaValidator is IKernelValidator {
+    
     event TwofaAddressSet(address indexed kernel, address indexed owner, address indexed twofaAddress);
     
     mapping(address => TwofaValidatorStorage) public twofaValidatorStorage;

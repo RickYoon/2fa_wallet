@@ -31,47 +31,82 @@ contract TwofaValidatorTest is Test {
     function setUp() public {
         (owner, ownerKey) = makeAddrAndKey("owner");
         (twofa, twofaKey) = makeAddrAndKey("twofa");
+
         entryPoint = new EntryPoint();
         factory = new KernelFactory(entryPoint);
         validator = new TwofaValidator();
-
         twofaFactory = new TwofaKernelFactory(factory, validator);
 
-        kernel = Kernel(payable(address(twofaFactory.createAccount(owner, twofa, 0))));
+        // console.log("owner", owner);
+        // console.log("ownerKey", ownerKey);
+        // console.log("twofa", twofa);
+        // console.log("twofaKey", twofaKey);
+        // console.log("factory", factory);
+        // console.log("twofaFactory", twofaFactory);
+
+        kernel = Kernel(
+            payable(address(twofaFactory.createAccount(owner, twofa, 0)))
+        );
+        // console.log("kernel", kernel);
+
         vm.deal(address(kernel), 1e30);
         beneficiary = payable(address(makeAddr("beneficiary")));
         // disabled all mode except default validator
         UserOperation[] memory ops = new UserOperation[](1);
         UserOperation memory op = entryPoint.fillUserOp(
-            address(kernel), abi.encodeWithSelector(KernelStorage.disableMode.selector, bytes4(0xffffffff))
+            address(kernel),
+            abi.encodeWithSelector(
+                KernelStorage.disableMode.selector,
+                bytes4(0xffffffff)
+            )
         );
-        op.signature = abi.encodePacked(bytes4(0x00000000), entryPoint.signUserOpHash(vm, ownerKey, op), entryPoint.signUserOpHash(vm, twofaKey, op));
-        ops[0] = op; 
+        op.signature = abi.encodePacked(
+            bytes4(0x00000000),
+            entryPoint.signUserOpHash(vm, ownerKey, op),
+            entryPoint.signUserOpHash(vm, twofaKey, op)
+        );
+        ops[0] = op;
         entryPoint.handleOps(ops, beneficiary);
     }
 
     function test_revert_not_mode_0() public {
         UserOperation[] memory ops = new UserOperation[](1);
         UserOperation memory op = entryPoint.fillUserOp(
-            address(kernel), abi.encodeWithSelector(KernelStorage.disableMode.selector, bytes4(0xffffffff))
+            address(kernel),
+            abi.encodeWithSelector(
+                KernelStorage.disableMode.selector,
+                bytes4(0xffffffff)
+            )
         );
 
         // revert mode 1
-        op.signature = abi.encodePacked(bytes4(0x00000001), entryPoint.signUserOpHash(vm, ownerKey, op), entryPoint.signUserOpHash(vm, twofaKey, op));
+        op.signature = abi.encodePacked(
+            bytes4(0x00000001),
+            entryPoint.signUserOpHash(vm, ownerKey, op),
+            entryPoint.signUserOpHash(vm, twofaKey, op)
+        );
         ops[0] = op;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IEntryPoint.FailedOp.selector, 0, string.concat("AA23 reverted: ", "kernel: mode disabled")
+                IEntryPoint.FailedOp.selector,
+                0,
+                string.concat("AA23 reverted: ", "kernel: mode disabled")
             )
         );
         entryPoint.handleOps(ops, beneficiary);
 
         // revert mode 2
-        op.signature = abi.encodePacked(bytes4(0x00000002), entryPoint.signUserOpHash(vm, ownerKey, op), entryPoint.signUserOpHash(vm, twofaKey, op));
-        ops[0] = op; 
+        op.signature = abi.encodePacked(
+            bytes4(0x00000002),
+            entryPoint.signUserOpHash(vm, ownerKey, op),
+            entryPoint.signUserOpHash(vm, twofaKey, op)
+        );
+        ops[0] = op;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IEntryPoint.FailedOp.selector, 0, string.concat("AA23 reverted: ", "kernel: mode disabled")
+                IEntryPoint.FailedOp.selector,
+                0,
+                string.concat("AA23 reverted: ", "kernel: mode disabled")
             )
         );
         entryPoint.handleOps(ops, beneficiary);
@@ -80,24 +115,42 @@ contract TwofaValidatorTest is Test {
     function test_revert_without_2fa() public {
         UserOperation[] memory ops = new UserOperation[](1);
         UserOperation memory op = entryPoint.fillUserOp(
-            address(kernel), abi.encodeWithSelector(KernelStorage.disableMode.selector, bytes4(0xffffffff))
+            address(kernel),
+            abi.encodeWithSelector(
+                KernelStorage.disableMode.selector,
+                bytes4(0xffffffff)
+            )
         );
         // only signed by owner
-        op.signature = abi.encodePacked(bytes4(0x00000000), entryPoint.signUserOpHash(vm, ownerKey, op), entryPoint.signUserOpHash(vm, ownerKey, op));
+        op.signature = abi.encodePacked(
+            bytes4(0x00000000),
+            entryPoint.signUserOpHash(vm, ownerKey, op),
+            entryPoint.signUserOpHash(vm, ownerKey, op)
+        );
         ops[0] = op;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IEntryPoint.FailedOp.selector, 0, string.concat("AA23 reverted: ", "account: different aggregator")
+                IEntryPoint.FailedOp.selector,
+                0,
+                string.concat(
+                    "AA23 reverted: ",
+                    "account: different aggregator"
+                )
             )
         );
         entryPoint.handleOps(ops, beneficiary);
 
         // not signed by 2fa key
-        op.signature = abi.encodePacked(bytes4(0x00000000), entryPoint.signUserOpHash(vm, ownerKey, op));
+        op.signature = abi.encodePacked(
+            bytes4(0x00000000),
+            entryPoint.signUserOpHash(vm, ownerKey, op)
+        );
         ops[0] = op;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IEntryPoint.FailedOp.selector, 0, string.concat("AA23 reverted (or OOG)")
+                IEntryPoint.FailedOp.selector,
+                0,
+                string.concat("AA23 reverted (or OOG)")
             )
         );
         entryPoint.handleOps(ops, beneficiary);
@@ -109,10 +162,26 @@ contract TwofaValidatorTest is Test {
 
         UserOperation[] memory ops = new UserOperation[](1);
         UserOperation memory op = entryPoint.fillUserOp(
-            address(kernel), abi.encodeWithSelector(Kernel.execute.selector, address(erc721), 0, abi.encodeWithSelector(ERC721.transferFrom.selector, address(kernel), address(owner), 0), 0)
+            address(kernel),
+            abi.encodeWithSelector(
+                Kernel.execute.selector,
+                address(erc721),
+                0,
+                abi.encodeWithSelector(
+                    ERC721.transferFrom.selector,
+                    address(kernel),
+                    address(owner),
+                    0
+                ),
+                0
+            )
         );
 
-        op.signature = abi.encodePacked(bytes4(0x00000000), entryPoint.signUserOpHash(vm, ownerKey, op), entryPoint.signUserOpHash(vm, twofaKey, op));
+        op.signature = abi.encodePacked(
+            bytes4(0x00000000),
+            entryPoint.signUserOpHash(vm, ownerKey, op),
+            entryPoint.signUserOpHash(vm, twofaKey, op)
+        );
         ops[0] = op;
         entryPoint.handleOps(ops, beneficiary);
         assertEq(erc721.ownerOf(0), address(owner));
